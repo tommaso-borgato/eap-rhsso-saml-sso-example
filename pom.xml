@@ -148,6 +148,9 @@
                             <location>${jboss-eap.ee-feature-pack.location}</location>
                         </feature-pack>
                     </feature-packs>
+                    <layers>
+                        <layer>datasources-web-server</layer>
+                    </layers>
                 </configuration>
             </plugin>
         </plugins>
@@ -173,7 +176,8 @@
                                 </feature-pack>
                             </feature-packs>
                             <layers>
-                                <layer>cloud-server</layer>
+                                <layer>datasources-web-server</layer>
+                                <layer>cloud-default-config</layer>
                             </layers>
                         </configuration>
                     </plugin>
