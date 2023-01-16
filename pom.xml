@@ -191,9 +191,18 @@
                                 </feature-pack>
                             </feature-packs>
                             <layers>
-                                <layer>datasources-web-server</layer>
                                 <layer>cloud-default-config</layer>
                             </layers>
+                            <packaging-scripts>
+                                <!-- Commands and scripts are executed in the context of an embedded-server.
+                                You don't need to start and stop the embedded-server. -->
+                                <execution>
+                                    <!-- List of commands -->
+                                    <commands>
+                                        <command>/subsystem=logging/logger=org.wildfly.security:add(level=DEBUG)</command>
+                                    </commands>
+                                </execution>
+                            </packaging-scripts>
                         </configuration>
                     </plugin>
                 </plugins>
