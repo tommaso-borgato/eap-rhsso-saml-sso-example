@@ -120,7 +120,7 @@
 
 
     <build>
-        <finalName>ROOT</finalName>
+        <finalName>saml-app</finalName>
         <pluginManagement>
             <plugins>
                 <plugin>
@@ -151,7 +151,7 @@
                 <configuration>
                     <failOnMissingWebXml>false</failOnMissingWebXml>
                     <outputDirectory>${project.build.directory}</outputDirectory>
-                    <warName>ROOT</warName>
+                    <warName>saml-app</warName>
                 </configuration>
             </plugin>
             <plugin>
