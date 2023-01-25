@@ -128,7 +128,7 @@
                     <artifactId>eap-maven-plugin</artifactId>
                     <version>${jboss-eap-maven-plugin.version}</version>
                     <configuration>
-                        <runtime-name>ROOT.war</runtime-name>
+                        <runtime-name>saml-app.war</runtime-name>
                         <!-- some tests check for the provisioned galleon layers -->
                         <record-provisioning-state>true</record-provisioning-state>
                     </configuration>
