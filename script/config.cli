@@ -1,0 +1,22 @@
+/subsystem=keycloak-saml/secure-deployment=YOUR-WAR.war/:add
+
+/subsystem=keycloak-saml/secure-deployment=YOUR-WAR.war/SP="http://localhost:8080"/:add(sslPolicy=EXTERNAL,logoutPage="SPECIFY YOUR LOGOUT PAGE!")
+
+/subsystem=keycloak-saml/secure-deployment=YOUR-WAR.war/SP="http://localhost:8080"/IDP=idp/:add( \
+    SingleSignOnService={ \
+        signRequest=false, \
+        validateResponseSignature=false, \
+        validateAssertionSignature=false, \
+        requestBinding=POST, \
+        bindingUrl=http://0.0.0.0:8081/realms/saml-test-realm/protocol/saml}, \
+    SingleLogoutService={ \
+        signRequest=false, \
+        signResponse=false, \
+        validateRequestSignature=false, \
+        validateResponseSignature=false, \
+        requestBinding=POST, \
+        responseBinding=POST, \
+        postBindingUrl=http://0.0.0.0:8081/realms/saml-test-realm/protocol/saml, \
+        redirectBindingUrl=http://0.0.0.0:8081/realms/saml-test-realm/protocol/saml} \
+)
+

@@ -237,8 +237,16 @@
                                 <layer>web-server</layer>
                                 <!-- <layer>cloud-default-config</layer> -->
                                 <!-- <layer>web-clustering</layer> -->
-                                <layer>keycloak-saml</layer>
+                                <!-- <layer>keycloak-saml</layer> -->
+                                <layer>keycloak-client-saml</layer>
                             </layers>
+                            <packaging-scripts>
+                                <packaging-script>
+                                    <scripts>
+                                        <script>script/config.cli</script>
+                                    </scripts>
+                                </packaging-script>
+                            </packaging-scripts>
                         </configuration>
                         <executions>
                             <execution>
