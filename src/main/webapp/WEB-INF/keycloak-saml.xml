@@ -1,0 +1,21 @@
+<keycloak-saml-adapter>
+    <SP entityID="http://tborgato.redhat.com:8080/saml-app/"
+        sslPolicy="EXTERNAL"
+        logoutPage="SPECIFY YOUR LOGOUT PAGE!">
+        <IDP entityID="idp">
+            <SingleSignOnService signRequest="false"
+                                 validateResponseSignature="false"
+                                 validateAssertionSignature="false"
+                                 requestBinding="POST"
+                                 bindingUrl="https://keycloak-tborgato2.apps.tborgato-vnah.eapqe.psi.redhat.com/auth/realms/basic-auth/protocol/saml"/>
+            <SingleLogoutService signRequest="false"
+                                 signResponse="false"
+                                 validateRequestSignature="false"
+                                 validateResponseSignature="false"
+                                 requestBinding="POST"
+                                 responseBinding="POST"
+                                 postBindingUrl="https://keycloak-tborgato2.apps.tborgato-vnah.eapqe.psi.redhat.com/auth/realms/basic-auth/protocol/saml"
+                                 redirectBindingUrl="https://keycloak-tborgato2.apps.tborgato-vnah.eapqe.psi.redhat.com/auth/realms/basic-auth/protocol/saml"/>
+        </IDP>
+    </SP>
+</keycloak-saml-adapter>
