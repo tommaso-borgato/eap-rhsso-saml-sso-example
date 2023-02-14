@@ -177,41 +177,43 @@
             <build>
                 <plugins>
                     <plugin>
-                        <groupId>org.jboss.eap.plugins</groupId>
-                        <artifactId>eap-maven-plugin</artifactId>
+                        <groupId>org.wildfly.plugins</groupId>
+                        <artifactId>wildfly-jar-maven-plugin</artifactId>
+                        <version>8.1.0.Final</version>
                         <configuration>
-                            <!-- some tests check for the provisioned galleon layers -->
-                            <record-provisioning-state>true</record-provisioning-state>
+                            <cloud/>
                             <feature-packs>
                                 <feature-pack>
                                     <location>wildfly@maven(org.jboss.universe:community-universe):current</location>
                                 </feature-pack>
                                 <feature-pack>
-                                    <location>org.wildfly.cloud:wildfly-cloud-galleon-pack:2.0.0.Final</location>
-                                </feature-pack>
-                                <feature-pack>
                                     <groupId>org.keycloak</groupId>
                                     <artifactId>keycloak-saml-adapter-galleon-pack</artifactId>
-                                    <version>999-SNAPSHOT</version> <!-- TODO: Update version when we know what it is -->
+                                    <version>999-SNAPSHOT</version>
                                 </feature-pack>
                             </feature-packs>
                             <layers>
-                                <!-- this layer is smart enough to add the necessary configuration, as a startup cli -->
-                                <layer>cloud-default-config</layer>
-                                <!-- this layer adds the SAML adapter and dependencies to the modules directory -->
-                                <layer>keycloak-saml</layer>
+                                <layer>web-server</layer>
+                                <layer>keycloak-client-saml</layer>
                             </layers>
-                            <packaging-scripts>
-                                <!-- Commands and scripts are executed in the context of an embedded-server.
-                                You don't need to start and stop the embedded-server. -->
-                                <execution>
-                                    <!-- List of commands -->
-                                    <commands>
-                                        <command>/subsystem=logging/logger=org.wildfly.security:add(level=DEBUG)</command>
-                                    </commands>
-                                </execution>
-                            </packaging-scripts>
+                            <!--<cli-sessions>
+                                <cli-session>
+                                    <script-files>
+                                        <script>configure-saml.cli</script>
+                                    </script-files>
+                                </cli-session>
+                            </cli-sessions>-->
+                            <plugin-options>
+                                <jboss-fork-embedded>true</jboss-fork-embedded>
+                            </plugin-options>
                         </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>package</goal>
+                                </goals>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>
