@@ -124,13 +124,27 @@
         <pluginManagement>
             <plugins>
                 <plugin>
-                    <groupId>org.jboss.eap.plugins</groupId>
-                    <artifactId>eap-maven-plugin</artifactId>
-                    <version>${jboss-eap-maven-plugin.version}</version>
+                    <groupId>org.wildfly.plugins</groupId>
+                    <artifactId>wildfly-jar-maven-plugin</artifactId>
+                    <version>8.1.0.Final</version>
                     <configuration>
-                        <runtime-name>saml-app.war</runtime-name>
-                        <!-- some tests check for the provisioned galleon layers -->
-                        <record-provisioning-state>true</record-provisioning-state>
+                        <feature-packs>
+                            <feature-pack>
+                                <location>wildfly@maven(org.jboss.universe:community-universe):current</location>
+                            </feature-pack>
+                            <feature-pack>
+                                <groupId>org.keycloak</groupId>
+                                <artifactId>keycloak-saml-adapter-galleon-pack</artifactId>
+                                <version>999-SNAPSHOT</version>
+                            </feature-pack>
+                        </feature-packs>
+                        <layers>
+                            <layer>web-server</layer>
+                            <layer>keycloak-client-saml</layer>
+                        </layers>
+                        <plugin-options>
+                            <jboss-fork-embedded>true</jboss-fork-embedded>
+                        </plugin-options>
                     </configuration>
                     <executions>
                         <execution>
@@ -154,20 +168,10 @@
                     <warName>saml-app</warName>
                 </configuration>
             </plugin>
-            <!--<plugin>
-                <groupId>org.jboss.eap.plugins</groupId>
-                <artifactId>eap-maven-plugin</artifactId>
-                <configuration>
-                    <feature-packs>
-                        <feature-pack>
-                            <location>${jboss-eap.ee-feature-pack.location}</location>
-                        </feature-pack>
-                    </feature-packs>
-                    <layers>
-                        <layer>datasources-web-server</layer>
-                    </layers>
-                </configuration>
-            </plugin>-->
+            <plugin>
+                <groupId>org.wildfly.plugins</groupId>
+                <artifactId>wildfly-jar-maven-plugin</artifactId>
+            </plugin>
         </plugins>
     </build>
 
@@ -181,7 +185,7 @@
                         <artifactId>wildfly-jar-maven-plugin</artifactId>
                         <version>8.1.0.Final</version>
                         <configuration>
-                            <context-root>/saml-app</context-root>
+                            <!--<context-root>/saml-app</context-root>-->
                             <cloud/>
                             <feature-packs>
                                 <feature-pack>
@@ -197,6 +201,7 @@
                                 <layer>web-server</layer>
                                 <layer>keycloak-client-saml</layer>
                             </layers>
+                            <!-- either use keycloak-saml.xml or configure-saml.cli -->
                             <!--<cli-sessions>
                                 <cli-session>
                                     <script-files>

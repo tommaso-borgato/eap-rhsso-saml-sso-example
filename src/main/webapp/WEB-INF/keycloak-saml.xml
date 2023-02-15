@@ -1,7 +1,7 @@
 <keycloak-saml-adapter>
-    <SP entityID="${env.KEYCLOAK_SAML_ADAPTER_ENTITY_ID:https://my-release-tborgato2.apps.tborgato-vnah.eapqe.psi.redhat.com/saml-app/}"
+    <SP entityID="${env.KEYCLOAK_SAML_ADAPTER_ENTITY_ID:https://my-release-tborgato2.apps.tborgato-vnah.eapqe.psi.redhat.com/}"
         sslPolicy="EXTERNAL"
-        logoutPage="${env.KEYCLOAK_SAML_ADAPTER_LOGOUT_PAGE:https://my-release-tborgato2.apps.tborgato-vnah.eapqe.psi.redhat.com/saml-app/}">
+        logoutPage="${env.KEYCLOAK_SAML_ADAPTER_LOGOUT_PAGE:https://my-release-tborgato2.apps.tborgato-vnah.eapqe.psi.redhat.com/}">
         <IDP entityID="idp">
             <SingleSignOnService signRequest="false"
                                  validateResponseSignature="false"

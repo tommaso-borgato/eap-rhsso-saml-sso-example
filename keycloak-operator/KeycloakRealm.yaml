@@ -1,0 +1,44 @@
+﻿apiVersion: keycloak.org/v1alpha1
+kind: KeycloakRealm
+metadata:
+  name: saml-basic-auth
+  labels:
+    app: sso
+spec:
+  instanceSelector:
+    matchLabels:
+      app: sso
+  realm:
+    enabled: true
+    clients:
+      - clientId: https://my-release-eap7-1999.apps.tborgato-vnah.eapqe.psi.redhat.com/
+        protocol: saml
+        enabled: true
+        clientAuthenticatorType: client-secret
+        standardFlowEnabled: true
+        implicitFlowEnabled: true
+        fullScopeAllowed: true
+        # Master SAML Processing URL
+        adminUrl: https://my-release-eap7-1999.apps.tborgato-vnah.eapqe.psi.redhat.com/saml
+        baseUrl: https://my-release-eap7-1999.apps.tborgato-vnah.eapqe.psi.redhat.com/
+        redirectUris:
+          - https://my-release-eap7-1999.apps.tborgato-vnah.eapqe.psi.redhat.com/*
+    users:
+      - username: admin
+        credentials:
+          - type: password
+            value: password
+        enabled: true
+        realmRoles:
+          - admin
+          - user
+      - username: user
+        credentials:
+          - type: password
+            value: user
+        enabled: true
+        realmRoles:
+          - user
+    displayName: saml-basic-auth
+    realm: saml-basic-auth
+    id: saml-basic-auth
