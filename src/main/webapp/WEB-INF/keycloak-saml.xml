@@ -1,21 +1,21 @@
 <keycloak-saml-adapter>
-    <SP entityID="https://my-release-tborgato2.apps.tborgato-vnah.eapqe.psi.redhat.com/saml-app/"
+    <SP entityID="${env.KEYCLOAK_SAML_ADAPTER_ENTITY_ID:https://my-release-tborgato2.apps.tborgato-vnah.eapqe.psi.redhat.com/saml-app/}"
         sslPolicy="EXTERNAL"
-        logoutPage="SPECIFY YOUR LOGOUT PAGE!">
+        logoutPage="${env.KEYCLOAK_SAML_ADAPTER_LOGOUT_PAGE:https://my-release-tborgato2.apps.tborgato-vnah.eapqe.psi.redhat.com/saml-app/}">
         <IDP entityID="idp">
             <SingleSignOnService signRequest="false"
                                  validateResponseSignature="false"
                                  validateAssertionSignature="false"
                                  requestBinding="POST"
-                                 bindingUrl="https://keycloak-tborgato2.apps.tborgato-vnah.eapqe.psi.redhat.com/auth/realms/basic-auth/protocol/saml"/>
+                                 bindingUrl="${env.KEYCLOAK_SAML_ADAPTER_BINDING_URL:https://keycloak-tborgato2.apps.tborgato-vnah.eapqe.psi.redhat.com/auth/realms/basic-auth/protocol/saml}"/>
             <SingleLogoutService signRequest="false"
                                  signResponse="false"
                                  validateRequestSignature="false"
                                  validateResponseSignature="false"
                                  requestBinding="POST"
                                  responseBinding="POST"
-                                 postBindingUrl="https://keycloak-tborgato2.apps.tborgato-vnah.eapqe.psi.redhat.com/auth/realms/basic-auth/protocol/saml"
-                                 redirectBindingUrl="https://keycloak-tborgato2.apps.tborgato-vnah.eapqe.psi.redhat.com/auth/realms/basic-auth/protocol/saml"/>
+                                 postBindingUrl="${env.KEYCLOAK_SAML_ADAPTER_POST_BINDING_URL:https://keycloak-tborgato2.apps.tborgato-vnah.eapqe.psi.redhat.com/auth/realms/basic-auth/protocol/saml}"
+                                 redirectBindingUrl="${env.KEYCLOAK_SAML_ADAPTER_REDIRECT_BINDING_URL:https://keycloak-tborgato2.apps.tborgato-vnah.eapqe.psi.redhat.com/auth/realms/basic-auth/protocol/saml}"/>
         </IDP>
     </SP>
 </keycloak-saml-adapter>
