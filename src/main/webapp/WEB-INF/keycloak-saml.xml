@@ -1,5 +1,5 @@
 <keycloak-saml-adapter>
-    <SP entityID="http://tborgato.redhat.com:8080/saml-app/"
+    <SP entityID="https://my-release-tborgato2.apps.tborgato-vnah.eapqe.psi.redhat.com/saml-app/"
         sslPolicy="EXTERNAL"
         logoutPage="SPECIFY YOUR LOGOUT PAGE!">
         <IDP entityID="idp">
