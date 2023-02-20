@@ -1,0 +1,26 @@
+# helm repo add jboss-eap https://jbossas.github.io/eap-charts/
+# helm install my-release -f values.yaml jboss-eap/eap8 --namespace eap7-1999
+# helm uninstall my-release --namespace eap7-1999
+build:
+  uri: "https://github.com/tommaso-borgato/eap-rhsso-saml-sso-example.git"
+  ref: "saml-feature-pack"
+  mode: s2i
+  env:
+    - name: "MAVEN_MIRROR_URL"
+      value: "http://repository.eapqe.psi.redhat.com:8081/artifactory/all/"
+    - name: "MAVEN_ARGS_APPEND"
+      value: " -Denforcer.skip=true -Dversion.war.maven.plugin=3.3.2"
+deploy:
+  replicas: 1
+  env:
+    # these are needed to configure file keycloak-saml.xml in the deployment
+    - name: "KEYCLOAK_SAML_ADAPTER_ENTITY_ID"
+      value: "https://my-release-eap7-1999.apps.tborgato-vnah.eapqe.psi.redhat.com/"
+    - name: "KEYCLOAK_SAML_ADAPTER_LOGOUT_PAGE"
+      value: "https://my-release-eap7-1999.apps.tborgato-vnah.eapqe.psi.redhat.com/"
+    - name: "KEYCLOAK_SAML_ADAPTER_BINDING_URL"
+      value: "https://keycloak-eap7-1999.apps.tborgato-vnah.eapqe.psi.redhat.com/auth/realms/basic-auth/protocol/saml"
+    - name: "KEYCLOAK_SAML_ADAPTER_POST_BINDING_URL"
+      value: "https://keycloak-eap7-1999.apps.tborgato-vnah.eapqe.psi.redhat.com/auth/realms/basic-auth/protocol/saml"
+    - name: "KEYCLOAK_SAML_ADAPTER_REDIRECT_BINDING_URL"
+      value: "https://keycloak-eap7-1999.apps.tborgato-vnah.eapqe.psi.redhat.com/auth/realms/basic-auth/protocol/saml"
