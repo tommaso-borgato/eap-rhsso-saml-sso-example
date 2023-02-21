@@ -1,0 +1,12 @@
+# oc get secrets/credential-rhsso-basic -o jsonpath='{.data.ADMIN_USERNAME}' | base64 --decode
+# oc get secrets/credential-rhsso-basic -o jsonpath='{.data.ADMIN_PASSWORD}' | base64 --decode
+apiVersion: keycloak.org/v1alpha1
+kind: Keycloak
+metadata:
+  labels:
+    app: sso
+  name: rhsso-basic
+spec:
+  externalAccess:
+    enabled: true
+  instances: 1

@@ -1,0 +1,10 @@
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  annotations:
+  name: eap7-1999-operators
+  namespace: eap7--1999
+spec:
+  targetNamespaces:
+    - eap7--1999
+  upgradeStrategy: Default

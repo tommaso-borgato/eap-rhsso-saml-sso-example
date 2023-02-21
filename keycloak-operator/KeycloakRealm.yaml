@@ -1,0 +1,43 @@
+apiVersion: keycloak.org/v1alpha1
+kind: KeycloakRealm
+metadata:
+  name: saml-basic-auth
+  labels:
+    app: sso
+spec:
+  instanceSelector:
+    matchLabels:
+      app: sso
+  realm:
+    enabled: true
+    users:
+      - username: admin
+        credentials:
+          - type: password
+            value: password
+        enabled: true
+        realmRoles:
+          - admin
+          - user
+      - username: user
+        credentials:
+          - type: password
+            value: user
+        enabled: true
+        realmRoles:
+          - user
+      # user needed for automatic client registration: needs role "create-client" of the "realm-management" client
+      # the corresponding EAP configuration is SSO_USERNAME=client, SSO_PASSWORD=creator, etc..
+      - username: client
+        credentials:
+          - type: password
+            value: creator
+        enabled: true
+        clientRoles:
+          account:
+            - "manage-account"
+          realm-management:
+            - "create-client"
+    displayName: saml-basic-auth
+    realm: saml-basic-auth
+    id: saml-basic-auth
