@@ -2,9 +2,9 @@ apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
 metadata:
   annotations:
-  name: eap7-1999-operators
-  namespace: eap7--1999
+  name: test0-operators
+  namespace: test0
 spec:
   targetNamespaces:
-    - eap7--1999
+    - test0
   upgradeStrategy: Default

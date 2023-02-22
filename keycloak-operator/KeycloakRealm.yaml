@@ -33,11 +33,15 @@ spec:
           - type: password
             value: creator
         enabled: true
+        realmRoles:
+          - admin
         clientRoles:
           account:
             - "manage-account"
           realm-management:
             - "create-client"
+            - "manage-clients"
+            - "manage-realms"
     displayName: saml-basic-auth
     realm: saml-basic-auth
     id: saml-basic-auth
