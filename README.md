@@ -1,7 +1,7 @@
-=== Manual test with the `keycloak-saml` layer
+=== Using the `keycloak-saml` layer with WildFly
 
-The `keycloak-saml` layer is intended to be used just with the `eap-maven-plugin` in `s2i` builds;
-The `s2i` build with the `eap-maven-plugin`, represents the only workflow which supports `SSO_*` environment
+The `keycloak-saml` layer is intended to be used just with the `wildfly-maven-plugin` in `s2i` builds;
+The `s2i` build with the `wildfly-maven-plugin`, represents the only workflow which supports `SSO_*` environment
 variables listed in https://github.com/wildfly/wildfly-cekit-modules/blob/main/jboss/container/wildfly/launch/keycloak/2.0/module.yaml#L8[Keycloak Env Vars];
 
 ==== OpenShift namespace
@@ -15,7 +15,7 @@ oc new-project $NAMESPACE
 
 ==== keycloak setup
 
-Deploy RH-SSO using the RH-SSO Operator (Red Hat version of Keycloak):
+Deploy Keycloak using the Keycloak Operator (note we are using the productized version of Keycloak here):
 
 Create an `OperatorGroup`:
 
@@ -32,71 +32,147 @@ spec:
     - $NAMESPACE
   upgradeStrategy: Default
 EOF
+
 oc apply -f /tmp/OperatorGroup.yaml
 ```
 
-Create a `Subscription` to the RH-SSO Operator:
+Create a `Subscription` to the Keycloak Operator:
 
 ```
 cat <<EOF > /tmp/Subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
-  name: rhsso-operator
+  name: keycloak-operator
 spec:
-  channel: stable
-  config:
-    env:
-      - name: RELATED_IMAGE_RHSSO
-        value: registry.redhat.io/rh-sso-7/sso76-openshift-rhel8:latest
-      - name: PROFILE
-        value: RHSSO
-  name: rhsso-operator
-  source: redhat-operators
+  channel: fast
+  installPlanApproval: Automatic
+  name: keycloak-operator
+  source: community-operators
   sourceNamespace: openshift-marketplace
+  startingCSV: keycloak-operator.v21.0.0
 EOF
+
 oc apply -f /tmp/Subscription.yaml
 ```
 
-Deploy a `Keycloak` instance which is actually the RH-SSO instance:
+Deploy a `Keycloak` instance:
 
 ```
+OPENSHIFT_API_URL=$(oc config view --minify -o jsonpath='{.clusters[*].cluster.server}')
+KEYCLOAK_HOSTNAME=$(echo $OPENSHIFT_API_URL | sed -e "s/^.*:\/\/api.\(.*\):.*/apps.\1/")
+
+oc create serviceaccount myserviceaccount
+oc adm policy add-scc-to-user anyuid -z myserviceaccount
+
 cat <<EOF > /tmp/Keycloak.yaml
-apiVersion: keycloak.org/v1alpha1
+apiVersion: v1
+kind: Secret
+metadata:
+  name: keycloak-tls-secret
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVmekNDQXVlZ0F3SUJBZ0lSQUlVenBxa1FoaTNKclZBcmxVNVRhVTB3RFFZSktvWklodmNOQVFFTEJRQXcKZ1lreEhqQWNCZ05WQkFvVEZXMXJZMlZ5ZENCa1pYWmxiRzl3YldWdWRDQkRRVEV2TUMwR0ExVUVDd3dtWVhCbApjblZtWm05QVlYQmxjblZtWm04dGJXRmpJQ2hCYm1SeVpXRWdVR1Z5ZFdabWJ5a3hOakEwQmdOVkJBTU1MVzFyClkyVnlkQ0JoY0dWeWRXWm1iMEJoY0dWeWRXWm1ieTF0WVdNZ0tFRnVaSEpsWVNCUVpYSjFabVp2S1RBZUZ3MHkKTWpBek1ETXhNVEExTlRWYUZ3MHlOREEyTURNeE1EQTFOVFZhTUZveEp6QWxCZ05WQkFvVEhtMXJZMlZ5ZENCawpaWFpsYkc5d2JXVnVkQ0JqWlhKMGFXWnBZMkYwWlRFdk1DMEdBMVVFQ3d3bVlYQmxjblZtWm05QVlYQmxjblZtClptOHRiV0ZqSUNoQmJtUnlaV0VnVUdWeWRXWm1ieWt3Z2dFaU1BMEdDU3FHU0liM0RRRUJBUVVBQTRJQkR3QXcKZ2dFS0FvSUJBUUN5MjljQ0JrSzZNWERNbWZONy9TVmdiNXR2WXFWc01LVjhjaEwvTE5UcXVkdVA0QVBZeEtzMApQWnZBd0RRa3lGUXRxQlVvTXBhelBCaUpyREZ2eHc2VDZaeGVUOXlobCtvNWxhVmdseUdUMC9TcTBjTkg3UkZaCk5KeXpEZDdhREVjc2E0cmZmVEJPbk9UZjZ3QzhuSkNobTl4Mm9FWlU0UHRIb2tKZzcrVlFXYUdVRHg3Wm5YSlgKUXQ5SXFSb1dQWW1BWnNQc1FUNzdPeWkzUGZSa2NqZ1FTWEJsWVhNWXFZOWxMZTZpR2NldnNkdGhyOEdOZFF4dQpJV3RBOTYwdkgzSFpwRmgyRXRJbnVEOTdlWjU4STB4WXZuU2xSZGlXV1BPSTNwWDFvR0xyWDZjWGl1RlRDNUg3ClB3NnVSZUdVZ2tvR2tXS1pSU3RZdGp1dENuZHEvZ2JuQWdNQkFBR2pnWTh3Z1l3d0RnWURWUjBQQVFIL0JBUUQKQWdXZ01CTUdBMVVkSlFRTU1Bb0dDQ3NHQVFVRkJ3TUJNQjhHQTFVZEl3UVlNQmFBRkg2Qmh5V21zVEpwMTdqSApVLzlKaDI1MUdhMTFNRVFHQTFVZEVRUTlNRHVDQzJWNFlXMXdiR1V1WTI5dGdnbHRlV0Z3Y0M1a1pYYUNDV3h2ClkyRnNhRzl6ZEljRWZ3QUFBWWNRQUFBQUFBQUFBQUFBQUFBQUFBQUFBVEFOQmdrcWhraUc5dzBCQVFzRkFBT0MKQVlFQWYrazRMQW11YjlLKzM3RWo5M3RwYXhZdER2cUl4d1VpVkRHUyt6TElrd296akkyaHVTYko2N0lsdVJZaQp0SjVUU3hlM1hMTTNJM1NQU2tKNUxpY0JLRjJDRW1tdDBKRnk2WERxeU80L3NncFVDWVh6V3J1ZWU5VWM4VkhNCnljL3ZLclN3bTVDek82alIyZk0xajdCUWVJdHh6Qk1rTlJYZUUxSUVJWGtYMUFFUGRYaFBHZXFya1NqYzdGbjkKSkIzeGIvN0xvdTNxSFlBV2xyeThicWd2Z0pjZFlVWE9RWlVZSXE0ekd4bkNZRFRTblRuTG8vbW5YQ0h6MHZXRApldlpRQzhsL2t2TWRNb1RNSUxWamxObFgyeTNyekw2ak1QZTIxcGpSdFd3K0R6S1E1dkdZemMxL1hFbXJRaVJVCmxlRWE4cVp4QVkySXptMW9hTWdNa0cwZklKRkEyZk9DSGVWTnJOek93S1ZjaXFGVHpUanpZMW9HZDd5bncrQ28KaUF1Tm03TERxdzczakJYMVBBK1ZYM0pnRTVlODVnQ0FVU0UzK0Y3Z1RGb1hBS1M3T255Mk9mS0xSREw3U0NPWgp1THlub1NVeTUrcnJlUjBJNzRwTXVhRm9hUHo5U2lCNzVCNnZ4eGZWV0xLN0g3T1ZxV1YyR0Qra3dxSW1hOUVJClVmV2IKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2Z0lCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktnd2dnU2tBZ0VBQW9JQkFRQ3kyOWNDQmtLNk1YRE0KbWZONy9TVmdiNXR2WXFWc01LVjhjaEwvTE5UcXVkdVA0QVBZeEtzMFBadkF3RFFreUZRdHFCVW9NcGF6UEJpSgpyREZ2eHc2VDZaeGVUOXlobCtvNWxhVmdseUdUMC9TcTBjTkg3UkZaTkp5ekRkN2FERWNzYTRyZmZUQk9uT1RmCjZ3QzhuSkNobTl4Mm9FWlU0UHRIb2tKZzcrVlFXYUdVRHg3Wm5YSlhRdDlJcVJvV1BZbUFac1BzUVQ3N095aTMKUGZSa2NqZ1FTWEJsWVhNWXFZOWxMZTZpR2NldnNkdGhyOEdOZFF4dUlXdEE5NjB2SDNIWnBGaDJFdEludUQ5NwplWjU4STB4WXZuU2xSZGlXV1BPSTNwWDFvR0xyWDZjWGl1RlRDNUg3UHc2dVJlR1Vna29Ha1dLWlJTdFl0anV0CkNuZHEvZ2JuQWdNQkFBRUNnZ0VBWEtWSlV2QWhRa2IzMGROdzd1bXFvYkJPQ0QxRnlLdk9ISThPVGdWUDZLSUwKSEJTQ2laY2R3M3FpSWc2dE05eGMxaVY1aUEva1JjVThSSnZnSTdFdFdPcXFKNlFnZWNleCtOQU9FT0ZYOERYYgpSMXhPVmdSemR3eXNtb2IxeDJhU3UyeWRTN1NTQURaK3k0bjBJTDdNb0JtVzhnK0ZQdFFtOU8wVWl4ZllaV3lhCmVleHFOS0xLVS9neG5iZXIvQy9kVWpPS3dndmpDRHkvZjhGQ1BNcDBEZzFLdU1Uc2J5ZjRyczQvM1JkUDBtK08KdXZhTTJQaEJsNEJJQVg2NXRIc1p6TGRtZWhOdzd1RGR1eGhBenVwVkR6YlhKcGQ5cEZaWE83QzlGWXhVNFpuSgpHbnliWktQcDlrL28yVkw2OWR1d0NSdkYySlVWdEZQZ2pibG80R2o4Y1FLQmdRRFc3NXVhdGtHUmNHR1Y3QWE3CktWcXVwWXFoazlxOERvaG9CZ2xvZzZMb3REMzFxbks2b1hwM2UweS9mZElMaEFERGdCaStEYW05aGFicEV4Q3YKK29TcnVNbFJLM1EyN1ZzbFd6WVQ2K0JyZDRNS3RrNjN6TG1YS25iTWhsOE9TQ1FERmdrUXQrWExGak1FUmNmawpvb2JWem1qajdrWnh5c1hoV2xsdlFTaXkyUUtCZ1FEVkI3ZG9oNDcwZ3I2VjBvbko4VzlDazF6MTBWMEtCQ0ZjCmFkd3Z4UjBKdUhsc2ZmVVJsaU1zQ3VzQlYzWDJpb3liblNxeG14SGQ0Qm5zeWx4bFlLdEpkM2pQbE05bnVoajAKbWZwMzFIcEN6aWRZRUs5Q1RVVFBTZE5tcUlFdHJqTkppano0OHcxNWlTVFA2c2c4ZXhWVUdtTVkrUDVyeDM4SQpXSkxzU3VqdnZ3S0JnUUNrTW5QN0l4VEFHTXhVRGZXdWNZODNNSHZScC9SSUNnb20vY1dlTkVIMTZBd1ZhdHN1CnZFR2ttV3N1TnQ2SnNaUXJ4ZVlnK3FzYmY4amM4WldqK292ejY3elA1NVJtaWJsQnRvWi9mWWo2VUZpcGpGQmkKbFdHS25BUVpodVdETVpWaFRpb3F2WEl0VFk0M3kxOUR5TzJjMUl6STQ3U3BKYkU1MFIzVm9qK0hNUUtCZ0VkZwpESDJEWGN4aXVnUnN4Q25iTU5IM21kL3F3K2VGTnNCRjM3WkpyczhBOWYzNXZkQ2tveWd3aUVpc3l5Tk5qSXJlCi85ejkvZUIvSTNDSTVLZzYyV2tHRkg1SWQ2MWpWdFV0ZWhRSUp1YVhOK3R6dTZUVlNzYkJENG1IejdCRWUzNmEKU0krSXIrMFduRFRsankxa2QrTHo3RndEb1FydmpvcDNVdExFem9MMUFvR0JBTTcvWVRNWSszV1NDeENPL3NIWAo3OGZDeHhBRHFMVWMxVURYdGMzcFhKQnorL3hJeUx1Q3JQYnlsUC82L21yRjN4SENTbGg3bi9mcFovV1dRMzIxCjNyZnR5Y2czWWVzalZxdjBaZmJVb01OdFE5cGYrcFpQMGpWVEZXMlF3YTZWYURrcGdTQnB4QzlvWXlMWTRldGMKajBkWm9NeTVMYXNKcm5jUjhlTVc4NHlnCi0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K
+type: kubernetes.io/tls
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: keycloak-db-secret
+data:
+  username: cG9zdGdyZXM= # postgres
+  password: dGVzdHBhc3N3b3Jk # testpassword
+type: Opaque
+---
+# PostgreSQL StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgresql-db
+spec:
+  serviceName: postgresql-db-service
+  selector:
+    matchLabels:
+      app: postgresql-db
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: postgresql-db
+    spec:
+      serviceAccountName: myserviceaccount
+      containers:
+        - name: postgresql-db
+          image: quay.io/tborgato/postgres
+          env:
+            - name: POSTGRES_PASSWORD
+              value: testpassword
+            - name: PGDATA
+              value: /data/pgdata
+            - name: POSTGRES_DB
+              value: keycloak
+---
+# PostgreSQL StatefulSet Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-db
+spec:
+  selector:
+    app: postgresql-db
+  type: LoadBalancer
+  ports:
+  - port: 5432
+    targetPort: 5432
+---
+apiVersion: k8s.keycloak.org/v2alpha1
 kind: Keycloak
 metadata:
-  labels:
-    app: sso
-  name: rhsso-basic
+  name: basic-keycloak
 spec:
-  externalAccess:
-    enabled: true
   instances: 1
+  hostname:
+    hostname: basic-keycloak-$NAMESPACE.$KEYCLOAK_HOSTNAME
+  ingress:
+    enabled: true
+  http:
+    tlsSecret: keycloak-tls-secret
+  db:
+    vendor: postgres
+    host: postgres-db
+    usernameSecret:
+      name: keycloak-db-secret
+      key: username
+    passwordSecret:
+      name: keycloak-db-secret
+      key: password
 EOF
+
 oc apply -f /tmp/Keycloak.yaml
 ```
 
-After the Operator's POD as been deployed you might want to retrieve the credentials to access the RH-SSO console as in the following:
+After the Operator's POD as been deployed you might want to retrieve the credentials to access the Keycloak console as in the following:
 
 ```
-oc get secrets/credential-rhsso-basic -o jsonpath='{.data.ADMIN_USERNAME}' -n $NAMESPACE | base64 --decode
-oc get secrets/credential-rhsso-basic -o jsonpath='{.data.ADMIN_PASSWORD}' -n $NAMESPACE | base64 --decode
+oc get secrets/basic-keycloak-initial-admin -o jsonpath='{.data.username}' -n $NAMESPACE | base64 --decode
+oc get secrets/basic-keycloak-initial-admin -o jsonpath='{.data.password}' -n $NAMESPACE | base64 --decode
 ```
 
-Define a `KeycloakRealm`:
+Define a `KeycloakRealmImport`:
 
 ```
-apiVersion: keycloak.org/v1alpha1
-kind: KeycloakRealm
+cat <<EOF > /tmp/KeycloakRealmImport.yaml
+kind: KeycloakRealmImport
+apiVersion: k8s.keycloak.org/v2alpha1
 metadata:
-  name: saml-basic-auth
+  name: saml-basic-auth-import
   labels:
     app: sso
 spec:
-  instanceSelector:
-    matchLabels:
-      app: sso
+  keycloakCRName: basic-keycloak
   realm:
+    realm: saml-basic-auth
+    id: saml-basic-auth
     enabled: true
     users:
       - username: admin
@@ -126,19 +202,17 @@ spec:
             - "create-client"
             - "manage-realm"
             - "manage-clients"
-    displayName: saml-basic-auth
-    realm: saml-basic-auth
-    id: saml-basic-auth
 EOF
-oc apply -f /tmp/KeycloakRealm.yaml
+
+oc apply -f /tmp/KeycloakRealmImport.yaml
 ```
 
-in the `KeycloakRealm` definitions please note we define a user `client` which is required for EAP being able to register
-a new SAML client into RH-SSO;
+in the `KeycloakRealmImport` definitions please note we define a user `client` which is required for EAP being able to register
+a new SAML client into Keycloak;
 
 ==== keystore
 
-When EAP, using the `client` user, registers a new SAML client into RH-SSO, it needs to store in the RH-SSO client
+When EAP, using the `client` user, registers a new SAML client into Keycloak, it needs to store in the Keycloak client
 configuration, the SAML client's certificate;
 
 On the other side, EAP needs to have the corresponding private key;
@@ -161,7 +235,7 @@ In order to create both the private key and the certificate, you have many optio
    -srckeystore keystore.p12 -srcstoretype PKCS12 -srcstorepass password \
    -storepass password
 
-2. have RH-SSO to do it for you; to do that, first configure a SAML client on RH-SSO, and then download the keystore.jks file;
+2. have Keycloak to do it for you; to do that, first configure a SAML client on Keycloak, and then download the keystore.jks file;
    the keystore will contain both the private key and the certificate you need;
    once you have downloaded the keystore, delete the SAML client: it's only needed to generate the keystore and EAP will
    create it automatically when it starts;
@@ -175,7 +249,7 @@ In order to create both the private key and the certificate, you have many optio
 
 NOTE: If you ever want to configure a new and complete SAML client (not one that's just needed to create a keystore), please note:
 [1]: the `clientId` has to be set to the URL to web application you wish to protect with SAML,
-[2]: the `adminUrl` actually populates the `Master SAML Processing URL` in the SAML client definition and is needed to properly have the client redirected back to the web application once authenticated (must be your app URL plus the `/saml` suffix, e.g. https://my-release-test4.apps.my.cluster.base.url/saml-app/saml)
+[2]: the `adminUrl` actually populates the `Master SAML Processing URL` in the SAML client definition and is needed to properly have the client redirected back to the web application once authenticated
 
 === secret
 
@@ -267,37 +341,37 @@ We need a `values.yaml` file to customize EAP Helm charts;
 
 Please note you have to configure a couple of values in the `values.yaml` file, based on your OpenShift cluster;
 
-For example, if logged into the OpenShift cluster with the command `oc login https://api.my.cluster.base.url:6443 ...` then
+For example, if logged into the OpenShift cluster with the command `oc login https://api.my-cluster-base-url:6443 ...` then
 you have to set:
 
 ```
-export OPENSHIFT_CLUSTER_SUFFIX=my.cluster.base.url
+export OPENSHIFT_CLUSTER_SUFFIX=my-cluster-base-url
 ```
 
 The values that get configured based on the value of the `OPENSHIFT_CLUSTER_SUFFIX` variable are:
 
-* `SSO_URL`: this is basically the "keycloak" Route created by the RH-SSO Operator plus the `/auth` suffix, e.g. https://keycloak-test4.apps.my.cluster.base.url/auth; set its value with e.g.:
+* `SSO_URL`: this is basically the "keycloak" Route created by the Keycloak Operator (note: no `/auth` suffix as in previous versions), e.g. https://keycloak-mytestns.apps.my-cluster-base-url; set its value with e.g.:
 
   KEYCLOAK_ROUTE=$(oc get route keycloak --template='{{ .spec.host }}')
-  export SSO_URL=https://$KEYCLOAK_ROUTE/auth
+  export SSO_URL=https://$KEYCLOAK_ROUTE
 
-* `HOSTNAME_HTTPS`: this is basically the host part of the "my-release" Route that will be created by this HELM Chart for your application, e.g. `my-release-test4.apps.my.cluster.base.url`; set its value with e.g.:
+* `HOSTNAME_HTTPS`: this is basically the host part of the "my-release" Route that will be created by this HELM Chart for your application, e.g. `my-release-mytestns.apps.my-cluster-base-url`; set its value with e.g.:
 
   KEYCLOAK_ROUTE=$(oc get route keycloak --template='{{ .spec.host }}')
   export HOSTNAME_HTTPS=${KEYCLOAK_ROUTE//keycloak-/my-release-}
 
 After setting these values we can create the `values.yaml` file;
 ```
-KEYCLOAK_ROUTE=$(oc get route keycloak --template='{{ .spec.host }}')
-export SSO_URL=https://$KEYCLOAK_ROUTE/auth
+KEYCLOAK_ROUTE=$(oc get ingress/basic-keycloak-ingress --template='{{ (index .spec.rules 0).host }}')
+export SSO_URL=https://$KEYCLOAK_ROUTE
 
-KEYCLOAK_ROUTE=$(oc get route keycloak --template='{{ .spec.host }}')
-export HOSTNAME_HTTPS=${KEYCLOAK_ROUTE//keycloak-/my-release-}
+KEYCLOAK_ROUTE=$(oc get ingress/basic-keycloak-ingress --template='{{ (index .spec.rules 0).host }}')
+export HOSTNAME_HTTPS=${KEYCLOAK_ROUTE//basic-keycloak-/my-release-}
 
 cat <<EOF > /tmp/values.yaml
 build:
   uri: "https://github.com/tommaso-borgato/eap-rhsso-saml-sso-example.git"
-  ref: "saml-feature-pack"
+  ref: "saml-feature-pack-wf"
   mode: s2i
 deploy:
   replicas: 1
@@ -340,11 +414,11 @@ EOF
 And then we can use it to build and deploy our application:
 
 ```
-helm repo add jboss-eap https://jbossas.github.io/eap-charts/
-helm install my-release -f /tmp/values.yaml jboss-eap/eap8 --namespace $NAMESPACE
+helm repo add wildfly https://docs.wildfly.org/wildfly-charts/
+helm install my-release -f /tmp/values.yaml wildfly/wildfly --namespace $NAMESPACE
 ```
 
 Once the chained build completes and your application is deployed, you can try it out hitting "my-release" Route plus the
-`/saml-app` context path, e.g. https://my-release-test4.apps.my.cluster.base.url/saml-app; you will be
-redirected to RH-SSO and asked for credentials, use username `user` and password `used` and you should finally get directed
-to the secured resource `/saml-app/profile.jsp` e.g. https://my-release-test4.apps.my.cluster.base.url/saml-app/profile.jsp.
+`/saml-app` context path, e.g. https://my-release-mytestns.apps.my-cluster-base-url/saml-app; you will be
+redirected to Keycloak and asked for credentials, use username `user` and password `used` and you should finally get directed
+to the secured resource `/saml-app/profile.jsp` e.g. https://my-release-mytestns.apps.my-cluster-base-url/saml-app/profile.jsp.

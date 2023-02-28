@@ -26,13 +26,11 @@
     </head>
     <body>
         <jsp:useBean id="controller" class="org.eap.examples.Controller" scope="request"/>
-        <c:set var="accountUri" value="<%=controller.getAccountUri(request)%>"/>
         <c:set var="req" value="<%=request%>"/>
 
         <div class="wrapper" id="profile">
             <div class="menu">
                 <button name="logoutBtn" onclick="location.href = '?GLO=true'" type="button">Logout</button>
-                <button name="accountBtn" onclick="location.href = '${accountUri}'" type="button">Account</button>
             </div>
 
             <div class="content">

@@ -23,12 +23,16 @@ import org.keycloak.constants.ServiceUrlConstants;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import java.util.logging.Logger;
+
 /**
  * Controller simplifies access to the server environment from the JSP.
  *
  * @author Stan Silvert ssilvert@redhat.com (C) 2015 Red Hat Inc.
  */
 public class Controller {
+
+    static Logger logger = Logger.getLogger(Controller.class.getName());
 
     public String getFirstName(HttpServletRequest req) {
         return getFriendlyAttrib(req, "givenName");
@@ -53,6 +57,7 @@ public class Controller {
 
     private SamlPrincipal getAccount(HttpServletRequest req) {
         SamlPrincipal principal = (SamlPrincipal)req.getUserPrincipal();
+        logger.fine("SamlPrincipal" + principal);
         return principal;
     }
 
