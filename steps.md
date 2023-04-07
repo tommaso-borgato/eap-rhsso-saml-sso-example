@@ -1,6 +1,16 @@
+==== OpenShift namespace
+
+Create a new OpenShift namespace and store its name in a shell variable:
+
 ```bash
 export NAMESPACE=keycloak-operator
+oc new-project $NAMESPACE
 ```
+==== keycloak setup
+
+Deploy Keycloak using the Keycloak Operator (note we are using the productized version of Keycloak here);
+
+First we need to create a Database for persisting realm data across PODs restart:
 
 ```bash
 oc create serviceaccount postgresql-serviceaccount
@@ -63,6 +73,7 @@ EOF
 oc apply -f /tmp/Postgresql.yaml  
 ```
 
+Create an `OperatorGroup`:
 
 ```bash
 cat <<EOF > /tmp/OperatorGroup.yaml
@@ -79,6 +90,7 @@ spec:
 EOF
 oc apply -f /tmp/OperatorGroup.yaml
 ```
+Create a `Subscription` to the Keycloak Operator:
 
 ```bash
 cat << EOF > /tmp/Subscription.yaml
@@ -97,11 +109,15 @@ EOF
 oc apply -f /tmp/Subscription.yaml
 ```
 
+Create the key and certificate to be sed by the `Keycloak` instance for HTTPS:
+
 ```bash
 openssl req -newkey rsa:2048 -keyout key.pem -x509 -days 365 -out certificate.pem -nodes -subj '/CN=keycloak.example.com'
 
 oc create secret tls keycloak-basic-tls-secret --cert=certificate.pem --key=key.pem --namespace $NAMESPACE
 ```
+
+Deploy a `Keycloak` instance:
 
 ```bash
 export OC_CONSOLE_HOSTNAME=$(oc get routes/console -n openshift-console --template='{{.spec.host}}')
@@ -136,10 +152,14 @@ EOF
 oc apply -f /tmp/Keycloak.yaml
 ```
 
+After the Operator's POD as been deployed you might want to retrieve the credentials to access the Keycloak console as in the following:
+
 ```bash
 oc get secrets/keycloak-basic-initial-admin -o jsonpath='{.data.username}' -n $NAMESPACE | base64 --decode
 oc get secrets/keycloak-basic-initial-admin -o jsonpath='{.data.password}' -n $NAMESPACE | base64 --decode
 ```
+
+Define a `KeycloakRealmImport`:
 
 ```bash
 cat << EOF > /tmp/KeycloakRealmImport.yaml
@@ -188,6 +208,8 @@ EOF
 oc apply -f /tmp/KeycloakRealmImport.yaml
 ```
 
+in the `KeycloakRealmImport` definitions please note we define a user `client` which is required for EAP being able to register
+a new SAML client into Keycloak;
 
 
 ```bash
