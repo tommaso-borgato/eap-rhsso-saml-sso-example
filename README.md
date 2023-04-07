@@ -232,8 +232,7 @@ In order to create both the private key and the certificate, you have many optio
    # Import the PKCS12 file into a new java keystore
    keytool -importkeystore \
    -deststorepass password -destkeystore keystore.jks \
-   -srckeystore keystore.p12 -srcstoretype PKCS12 -srcstorepass password \
-   -storepass password
+   -srckeystore keystore.p12 -srcstoretype PKCS12 -srcstorepass password
 
 2. have Keycloak to do it for you; to do that, first configure a SAML client on Keycloak, and then download the keystore.jks file;
    the keystore will contain both the private key and the certificate you need;

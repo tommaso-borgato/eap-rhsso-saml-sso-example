@@ -1,6 +1,70 @@
-```shell
-export NAMESPACE=test2
+```bash
+export NAMESPACE=keycloak-operator
+```
 
+```bash
+oc create serviceaccount postgresql-serviceaccount
+oc adm policy add-scc-to-user anyuid -z postgresql-serviceaccount
+
+cat <<EOF > /tmp/Postgresql.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: keycloak-db-secret
+  namespace: $NAMESPACE
+data:
+  username: cG9zdGdyZXM= # postgres
+  password: dGVzdHBhc3N3b3Jk # testpassword
+type: Opaque
+---
+# PostgreSQL StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgresql-db
+  namespace: $NAMESPACE
+spec:
+  serviceName: postgresql-db-service
+  selector:
+    matchLabels:
+      app: postgresql-db
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: postgresql-db
+    spec:
+      serviceAccountName: postgresql-serviceaccount
+      containers:
+        - name: postgresql-db
+          image: quay.io/tborgato/postgres
+          env:
+            - name: POSTGRES_PASSWORD
+              value: testpassword
+            - name: PGDATA
+              value: /data/pgdata
+            - name: POSTGRES_DB
+              value: keycloak
+---
+# PostgreSQL StatefulSet Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-db
+  namespace: $NAMESPACE
+spec:
+  selector:
+    app: postgresql-db
+  type: LoadBalancer
+  ports:
+  - port: 5432
+    targetPort: 5432
+EOF
+oc apply -f /tmp/Postgresql.yaml  
+```
+
+
+```bash
 cat <<EOF > /tmp/OperatorGroup.yaml
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
@@ -14,57 +78,82 @@ spec:
   upgradeStrategy: Default
 EOF
 oc apply -f /tmp/OperatorGroup.yaml
+```
 
-
-cat <<EOF > /tmp/Subscription.yaml
+```bash
+cat << EOF > /tmp/Subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
-  name: rhsso-operator
+  name: keycloak-operator
+  namespace: $NAMESPACE
 spec:
-  channel: stable
-  config:
-    env:
-      - name: RELATED_IMAGE_RHSSO
-        value: registry.redhat.io/rh-sso-7/sso76-openshift-rhel8:latest
-      - name: PROFILE
-        value: RHSSO
-  name: rhsso-operator
-  source: redhat-operators
+  channel: fast
+  installPlanApproval: Automatic
+  name: keycloak-operator
+  source: community-operators
   sourceNamespace: openshift-marketplace
 EOF
 oc apply -f /tmp/Subscription.yaml
+```
 
+```bash
+openssl req -newkey rsa:2048 -keyout key.pem -x509 -days 365 -out certificate.pem -nodes -subj '/CN=keycloak.example.com'
 
-cat <<EOF > /tmp/Keycloak.yaml
-apiVersion: keycloak.org/v1alpha1
+oc create secret tls keycloak-basic-tls-secret --cert=certificate.pem --key=key.pem --namespace $NAMESPACE
+```
+
+```bash
+export OC_CONSOLE_HOSTNAME=$(oc get routes/console -n openshift-console --template='{{.spec.host}}')
+export KEYCLOAK_HOSTNAME="keycloak-basic.${OC_CONSOLE_HOSTNAME#*\.}"
+
+cat << EOF > /tmp/Keycloak.yaml
+apiVersion: k8s.keycloak.org/v2alpha1
 kind: Keycloak
 metadata:
+  name: keycloak-basic
   labels:
     app: sso
-  name: rhsso-basic
+  namespace: $NAMESPACE
 spec:
-  externalAccess:
+  hostname: 
+    hostname: $KEYCLOAK_HOSTNAME
+  ingress:
     enabled: true
   instances: 1
+  http:
+    tlsSecret: keycloak-basic-tls-secret
+  db:
+    vendor: postgres
+    host: postgres-db
+    usernameSecret:
+      name: keycloak-db-secret
+      key: username
+    passwordSecret:
+      name: keycloak-db-secret
+      key: password    
 EOF
 oc apply -f /tmp/Keycloak.yaml
-oc get secrets/credential-rhsso-basic -o jsonpath='{.data.ADMIN_USERNAME}' -n $NAMESPACE | base64 --decode
-oc get secrets/credential-rhsso-basic -o jsonpath='{.data.ADMIN_PASSWORD}' -n $NAMESPACE | base64 --decode
+```
 
+```bash
+oc get secrets/keycloak-basic-initial-admin -o jsonpath='{.data.username}' -n $NAMESPACE | base64 --decode
+oc get secrets/keycloak-basic-initial-admin -o jsonpath='{.data.password}' -n $NAMESPACE | base64 --decode
+```
 
-cat <<EOF > /tmp/KeycloakRealm.yaml
-apiVersion: keycloak.org/v1alpha1
-kind: KeycloakRealm
+```bash
+cat << EOF > /tmp/KeycloakRealmImport.yaml
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: KeycloakRealmImport
 metadata:
   name: saml-basic-auth
   labels:
     app: sso
+  namespace: $NAMESPACE
 spec:
-  instanceSelector:
-    matchLabels:
-      app: sso
   realm:
+    realm: saml-basic-auth
+    id: saml-basic-auth
     enabled: true
     users:
       - username: admin
@@ -82,8 +171,6 @@ spec:
         enabled: true
         realmRoles:
           - user
-      # user needed for automatic client registration: needs role "create-client" of the "realm-management" client
-      # the corresponding EAP configuration is SSO_USERNAME=client, SSO_PASSWORD=creator, etc..
       - username: client
         credentials:
           - type: password
@@ -94,63 +181,48 @@ spec:
             - "manage-account"
           realm-management:
             - "create-client"
-            # FIRST ERROR: in https://access.redhat.com/articles/6980008: withouth these roles the client is not automatically created:
             - "manage-realm"
-            - "manage-clients"
-    displayName: saml-basic-auth
-    realm: saml-basic-auth
-    id: saml-basic-auth
+            - "manage-clients"    
+  keycloakCRName: keycloak-basic
 EOF
-oc apply -f /tmp/KeycloakRealm.yaml
+oc apply -f /tmp/KeycloakRealmImport.yaml
 ```
 
-Note: SSO_URL must be set to Keycloak route + "/auth"
-Note: what SSO_SECRET is, should be explained (I skipped setting it)
 
-Create a SAML client on RH-SSO and download the keystore.jks (then delete the client: it's only needed to generate the keystore)
 
-For the SAML client, use the following values:
+```bash
+KEYCLOAK_ROUTE=$(oc get ingress/keycloak-basic-ingress --template='{{ (index .spec.rules 0).host }}')
+export SSO_URL=https://$KEYCLOAK_ROUTE
 
-    Archive Format:             JKS
-    Key Alias:                  saml-app
-    Key Password:               password
-    Realm Certificate Alias:    saml-basic-auth
-    Store Password:             password
+# if you don't use "Routes discovery"
+KEYCLOAK_ROUTE=$(oc get ingress/keycloak-basic-ingress --template='{{ (index .spec.rules 0).host }}')
+export HOSTNAME_HTTPS=${KEYCLOAK_ROUTE//basic-keycloak-/my-release-}
 
-Create a secret with keystore.jks:
-
-```shell
-oc delete secret eap-app-secret 
-oc create secret generic eap-app-secret --from-file=keystore.jks=/home/tborgato/Downloads/keystore.jks --type=opaque
+# if you use "Routes discovery": WildFly needs permissions to list routes
+oc create role routeview --verb=list --resource=route -n $NAMESPACE
+oc policy add-role-to-user routeview system:serviceaccount:$NAMESPACE:default --role-namespace=$NAMESPACE -n $NAMESPACE
 ```
 
-Install HELM release:
-
-```shell
+```bash
 cat <<EOF > /tmp/values.yaml
 build:
   uri: "https://github.com/tommaso-borgato/eap-rhsso-saml-sso-example.git"
-  ref: "saml-feature-pack"
+  ref: "saml-feature-pack-wf"
   mode: s2i
-  env:
-    - name: "MAVEN_MIRROR_URL"
-      value: "http://repository.eapqe.psi.redhat.com:8081/artifactory/all/"
-    - name: "MAVEN_ARGS_APPEND"
-      value: " -Denforcer.skip=true -Dversion.war.maven.plugin=3.3.2"
 deploy:
   replicas: 1
   env:
     - name: SSO_URL
-      value: https://keycloak-$NAMESPACE.apps.tborgato-vnah.eapqe.psi.redhat.com/auth
+      value: $SSO_URL
     - name: SSO_REALM
       value: "saml-basic-auth"
     - name: SSO_USERNAME
       value: "client"
     - name: SSO_PASSWORD
       value: "creator"
-    - name: HOSTNAME_HTTPS
-      value: my-release-$NAMESPACE.apps.tborgato-vnah.eapqe.psi.redhat.com
-    # SECOND ERROR: this field contains the Key Alias for the private key inside the keystore defined in SSO_SAML_KEYSTORE (otherwise you get Caused by: java.lang.NullPointerException: signingKey cannot be null)
+    # decomment if you don't use "Routes discovery"
+    #- name: HOSTNAME_HTTPS
+    #  value: $HOSTNAME_HTTPS
     - name: SSO_SAML_CERTIFICATE_NAME
       value: "saml-app"
     - name: SSO_SAML_KEYSTORE
@@ -165,18 +237,6 @@ deploy:
       value: "true"
     - name: SSO_SECRET
       value: "fakesecret"
- #   - name: HTTPS_SECRET
- #     value: "saml-app"
- #   - name: HTTPS_KEYSTORE
- #     value: "keystore.jks"
- #   - name: HTTPS_NAME
- #     value: https://my-release-$NAMESPACE.apps.tborgato-vnah.eapqe.psi.redhat.com
- #   - name: HTTPS_PASSWORD
- #     value: "password"
- #   - name: HTTPS_KEY_PASSWORD
- #     value: "password"
- #   - name: HTTPS_KEYSTORE_DIR
- #     value: "/etc/eap-app-secret-volume"
   volumeMounts:
     - mountPath: "/etc/eap-app-secret-volume"
       name: "eap-app-secret-volume"
@@ -186,10 +246,9 @@ deploy:
       secret:
         secretName: "eap-app-secret"
 EOF
-
-helm uninstall my-release --namespace $NAMESPACE
-helm repo add jboss-eap https://jbossas.github.io/eap-charts/
-helm install my-release -f /tmp/values.yaml jboss-eap/eap8 --namespace $NAMESPACE
 ```
 
-
+```bash
+helm repo add wildfly https://docs.wildfly.org/wildfly-charts/
+helm install my-release -f /tmp/values.yaml wildfly/wildfly --namespace $NAMESPACE
+```
