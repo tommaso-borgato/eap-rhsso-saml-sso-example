@@ -286,6 +286,15 @@ The values that get configured based on the value of the `OPENSHIFT_CLUSTER_SUFF
   KEYCLOAK_ROUTE=$(oc get route keycloak --template='{{ .spec.host }}')
   export HOSTNAME_HTTPS=${KEYCLOAK_ROUTE//keycloak-/my-release-}
 
+> NOTE: Instead of using HOSTNAME_HTTP/S, you can leverage the "Automatic The Routes discovery" feature; this consists in
+EAP being able to determine its own route when stating and using this value to auto-fill the HOSTNAME_HTTP/S variable;
+To be able to do it, the service account `default` which runs EAP must be able to list routes:
+
+  ```
+oc create role routeview --verb=list --resource=route
+oc policy add-role-to-user routeview system:serviceaccount:<namespace-name>:default --role-namespace=<namespace-name> -n <namespace-name>
+  ```
+
 After setting these values we can create the `values.yaml` file;
 ```
 KEYCLOAK_ROUTE=$(oc get route keycloak --template='{{ .spec.host }}')
